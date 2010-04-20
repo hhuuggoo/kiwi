@@ -51,14 +51,16 @@ def tree_split_column_continuous(np.ndarray[np.float64_t, ndim=1] data,
         target1=target[:x]
         target2=target[x:]
         score = metric_func(target1,target2)
+        
         if score>best_score:
             score=best_score
             best_value=data[sorted_idx[x]]
     return(best_value, best_score)
 
-    
-def mse_metric_c(np.ndarray[np.float64_t, ndim=1] data1,
-                 np.ndarray[np.float64_t, ndim=1] data2):
+cpdef mse_metric_c(np.ndarray tdata1,
+                    np.ndarray tdata2):
+    cdef np.ndarray[np.float64_t, ndim=1] data1 = tdata1
+    cdef np.ndarray[np.float64_t, ndim=1] data2 = tdata2
     cdef int i,data_length
     cdef double accume_square_val, accume_sum_val,error1,error2
     data_length=len(data1)
@@ -82,4 +84,3 @@ def mse_metric_c(np.ndarray[np.float64_t, ndim=1] data1,
     error2 = accume_square_val/data_length\
 
     return (error1+error2)
-    
