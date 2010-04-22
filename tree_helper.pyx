@@ -3,14 +3,14 @@ cimport numpy as np
 
 def tree_spit(np.ndarray[np.float64_t, ndim=2] data,
               np.ndarray[np.float64_t, ndim=1] target,
-              discrete_or_continuous_list, metric_func):
+              discrete_indicator_list, metric_func):
     cdef int num_cols,cc,rc
     cdef double best_score,score,val,best_val
     cdef int best_column
     best_score=0.0
     num_cols = data.shape[1]
     for cc in range(num_cols):
-        if discrete_or_continuous_list[cc]=='d':
+        if discrete_indicator_list[cc]==1:
             (val,score)=tree_split_column_discrete(data[:,cc], target, metric_func)
         else:
             (val,score)=tree_split_column_continuous(data[:,cc],target,metric_func)

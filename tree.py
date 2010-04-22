@@ -1,30 +1,35 @@
 import tree_helper
 
+#sub-indexes in this module should be numpy arrays of integers
+
+class FieldDescriptor():
+    def __init__(self, name, discrete_int):
+        self.name=name
+        self.discrete_int=discrete_int
 
 class Tree:
-    def __init__(self, data, target_idx, discreteout, flds):
-        total_indexes = range(data.shape[1])
-        del total_indexes[target_idx]
-        self.data = data[:,total_indexes]
-        self.target = [:,target_idx]
+    def __init__(self, data, target, data_descriptors, target_descriptor, sub_indexes):
+        self.data = data
+        self.target = target
+        self.data_descriptors = data_descriptors
+        self.target_descriptor = target_descriptor
         self.discreteout = discreteout
         self.flds = flds
 
 
 class SimpleTreeNode:
     def __del__(self):
-        del self.sub_data
         del self.sub_indexes
-        del self.sub_target
         del self.level
-        del self.parent
         for x in self.children:
             del x
-    def __init__(self, sub_data, sub_indexes, sub_target, level, parent):
-        self.sub_data=sub_data
-        self.sub_indexes=sub_indexes
-        self.sub_target=sub_target
-        self.level=level
-        self.parent=parent
+    def __init__(self, tree, sub_indexes, level, parent_node):
+        self.tree = tree
+        self.sub_indexes = sub_indexes
+        self.level = level
+        self.parent_node = parent_node
         self.children=[]
+        self.rules=[]
+
+def simple_tree_eval(root_node,data):
     
