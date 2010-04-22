@@ -1,0 +1,6 @@
+*.pyc
+*~
+obridge*.tab
+\#*\#
+*.tab
+build*
