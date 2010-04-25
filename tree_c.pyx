@@ -86,7 +86,6 @@ cdef class SimpleBinaryTreeNode:
     def __cinit__(self, Tree tree, int level,
                   SimpleBinaryTreeNode parent_node, bint store_data):
         self.tree = tree
-        self.sub_indexes = sub_indexes
         self.level = level
         self.parent_node = parent_node
         self.store_data = store_data
@@ -182,7 +181,7 @@ cpdef object tree_split_column_continuous(np.ndarray input_data,
             score=best_score
             best_value = data[sorted_idx[x]]
             best_idx = x
-    return (best_value, score, sorted_idx[:x], sorted_idx[x:])
+    return (best_value, best_score, sorted_idx[:best_idx], sorted_idx[best_idx:])
 
 cdef double mse_metric_c(np.ndarray tdata1,
                     np.ndarray tdata2):
