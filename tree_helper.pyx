@@ -29,46 +29,56 @@ cpdef double mse_metric_c(np.ndarray tdata1,
 
     return -(error1+error2)
 
-def split(sub_data, sub_target, metric_func):
+cpdef object split(np.ndarray sub_data_in, np.ndarray sub_target_in,
+            np.ndarray disc_array, object unique_vals_list, metric_func):
+    cdef np.ndarray[np.float64_t, ndim = 2] sub_data = sub_data_in
+    cdef np.ndarray[np.float64_t, ndim = 1] sub_target = sub_target_in
+    cdef np.ndarray[np.int_t, ndim=1] best_idx1, best_idx2, idx1, idx2
+    cdef int num_cols, cc, best_col_idx
+    cdef double best_score, score, val, best_val
+    cdef bool score_set = False
+
     num_cols = sub_data.shape[1]
-    best_score = None
-    best_val = 0
-    best_idx1 = None
-    best_idx2 = None
-    best_field = None
+
     for cc in range(num_cols):
-        field = self.tree.data_descriptors[cc]
-        if field.discrete:
+        if disc_array[cc]:
             (val,
              score,
              idx1,
-             idx2) = self.split_discrete(sub_data[:,cc],
-                                              sub_target,
-                                              cc,
-                                              metric_func)
+             idx2) = split_discrete(sub_data[:,cc],
+                                  sub_target,
+                                  unique_vals_list[cc],
+                                  metric_func)
         else:
             (val,
              score,
              idx1,
-             idx2) = self.split_continuous(sub_data[:,cc],
+             idx2) = split_continuous(sub_data[:,cc],
                                                 sub_target,
-                                                cc,
                                                 metric_func)
         if not np.isfinite(score):
             continue
 
-        if best_score is None or score > best_score:
+        if not score_set or best_score > score:
             best_val = val
             best_score = score
             best_idx1 = idx1
             best_idx2 = idx2
-            best_field = field
-    return(best_field, best_val, best_score, best_idx1, best_idx2)
+            best_col_idx = cc
+            
+    return(best_col_idx, best_val, best_score, best_idx1, best_idx2)
 
-def split_discrete(self, sub_column_data, sub_target,
-                  column_idx, metric_func):
-    discrete_values = self.tree.data_descriptors[column_idx].unique_values
-    best_score = None
+cpdef object split_discrete(np.ndarray sub_column_data_in, np.ndarray sub_target_in,
+                   np.ndarray discrete_values_in, metric_func):
+    cdef np.ndarray[np.float64_t, ndim=1] sub_column_data, sub_target, discrete_values
+    sub_column_data = sub_column_data_in
+    sub_target = sub_target_in
+    discrete_values = discrete_values_in
+
+    cdef bool score_set = False
+    cdef double x, best_score, best_discrete_class
+    cdef np.ndarray  idx, not_idx, best_idx, best_not_idx
+    
     for x in discrete_values:
         idx = (sub_column_data == x)
         not_idx = np.logical_not(idx)
@@ -79,19 +89,27 @@ def split_discrete(self, sub_column_data, sub_target,
         if not np.isfinite(score):
             continue
 
-        if best_score is None or score > best_score:
+        if not score_set or  score > best_score:
             best_score = score
             best_discrete_class = x
             best_idx = idx
             best_not_idx = not_idx
-    return(best_discrete_class, best_score, np.nonzero(best_idx), np.nonzero(best_not_idx))
+    return(best_discrete_class, best_score, np.nonzero(best_idx)[0], np.nonzero(best_not_idx)[0])
 
-def split_continuous(self, sub_column_data, sub_target,
-                     column_idx, metric_func):
+cpdef object split_continuous(np.ndarray sub_column_data_in, np.ndarray sub_target_in, metric_func):
+    cdef np.ndarray[np.float64_t, ndim=1] sub_column_data, sub_target
+    cdef np.ndarray[np.int_t, ndim=1] sorted_idx, idx1, idx2
+    cdef bool score_set = False
+    cdef int x, idx_len, best_idx
+    cdef double best_score, score, best_value
+    
+    sub_column_data = sub_column_data_in
+    sub_target = sub_target_in
+    
     sorted_idx = np.argsort(sub_column_data)
     sorted_target = sub_target[sorted_idx]
-    best_score = None
-    best_idx = 0
+    idx_len = len(sorted_idx)
+
     for x in range(len(sorted_idx)):
         target1 = sorted_target[:x]
         target2 = sorted_target[x:]
@@ -99,9 +117,10 @@ def split_continuous(self, sub_column_data, sub_target,
         if not np.isfinite(score):
             continue
 
-        if best_score is None or score > best_score:
+        if not score_set or score > best_score:
             best_score = score
             best_idx = x
+
     best_value = sorted_idx[best_idx]
     idx1 = sorted_idx[:best_idx]
     idx2 = sorted_idx[best_idx:]

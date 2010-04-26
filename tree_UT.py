@@ -6,7 +6,7 @@ num_rows=2000
 num_cols=11
 discretes = [4,5]
 data = np.random.random((num_rows,num_cols))
-unique_vals = range(-10,11)
+unique_vals = np.arange(-10.0,11.0)
 unique_labels = [str(x) for x in unique_vals]
 for c in discretes:
     data[:,c] = np.round(10 * data[:,c])
@@ -24,7 +24,7 @@ for c in range(num_cols):
         descriptor = ContinuousField(str(c), c)
     fld_desc.append(descriptor)
 
-assert fld_desc[discretes[0]].discrete_val_mapping[5.0] == '5', 'discrete mapping value wrong'
+assert fld_desc[discretes[0]].discrete_val_mapping[5.0] == '5.0', 'discrete mapping value wrong'
 
 
 disc_rule = DiscreteBinaryRule(fld_desc[discretes[0]], 5.0)
@@ -73,6 +73,7 @@ root.output = None
 root.rule = None
 
 import datetime as dt
+my_tree.helper_data_init()
 st=dt.datetime.today()
 root.grow(np.arange(num_rows), tree_helper.mse_metric_c, max_depth, mean_output)
 ed=dt.datetime.today()

@@ -11,7 +11,7 @@ SimpleBinaryTreeNode
 """
 
 import numpy as np
-
+import tree_helper as th
 class FieldDescriptor:
     """ Describes a column of your data """
     def __init__(self, name, discrete, col_idx):
@@ -90,6 +90,14 @@ class Tree:
     def predict(self, sample):
         if self.root is not None:
             return self.root.descend(sample).output
+    def helper_data_init(self):
+        self.disc_array = np.array([x.discrete for x in self.data_descriptors])
+        self.unique_vals_list = []
+        for x in self.data_descriptors:
+            if x.discrete:
+                self.unique_vals_list.append(x.unique_values)
+            else:
+                self.unique_vals_list.append(None)
         
 class SimpleBinaryTreeNode:
     def __init__(self, tree, level, parent_node, store_data):
@@ -118,7 +126,12 @@ class SimpleBinaryTreeNode:
         if stop_func(self, sub_idx) or len(sub_idx)<2:
             return
         
-        (field, val, score, idx1, idx2) = self.split(sub_idx, metric_func)
+        (col_idx, val, score, idx1, idx2) = th.split(self.tree.data[sub_idx, :],
+                                                     self.tree.target[sub_idx],
+                                                     self.tree.disc_array,
+                                                     self.tree.unique_vals_list,                                              
+                                                     metric_func)
+        field = self.tree.data_descriptors[col_idx]
         
         if self.store_data:
             self.stat_store.append((val, score, sub_idx[idx1], sub_idx[idx2]))
