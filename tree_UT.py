@@ -2,7 +2,7 @@ import numpy as np
 from tree import *
 import tree_helper
 
-num_rows=2000
+num_rows=20000
 num_cols=11
 discretes = [4,5]
 data = np.random.random((num_rows,num_cols))
