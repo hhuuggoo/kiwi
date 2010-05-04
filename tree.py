@@ -91,6 +91,13 @@ class Tree:
         if self.root is not None:
             return self.root.descend(sample).output
         
+    def grow(self, sub_idx, metric_func, stop_func,
+             output_func, store_data = False):
+        self.root = SimpleBinaryTreeNode(self, 0, None, store_data)
+        self.root grow(self, sub_idx, metric_func,
+                       stop_func, output_func)
+        
+        
 class SimpleBinaryTreeNode:
     def __init__(self, tree, level, parent_node, store_data):
         self.tree = tree
