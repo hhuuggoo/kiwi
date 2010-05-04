@@ -1,6 +1,10 @@
 import numpy as np
 cimport numpy as np
+import cython
+cimport cython
 
+@cython.boundscheck(False)
+@cython.wraparound(False)
 cpdef double mse_metric_c(np.ndarray tdata1,
                     np.ndarray tdata2):
     cdef np.ndarray[np.float64_t, ndim=1] data1 = tdata1
@@ -29,6 +33,8 @@ cpdef double mse_metric_c(np.ndarray tdata1,
 
     return -(error1+error2)
 
+@cython.boundscheck(False)
+@cython.wraparound(False)
 cpdef object split(np.ndarray sub_data_in, np.ndarray sub_target_in,
             np.ndarray disc_array, object unique_vals_list, metric_func):
     cdef np.ndarray[np.float64_t, ndim = 2] sub_data = sub_data_in
@@ -68,6 +74,8 @@ cpdef object split(np.ndarray sub_data_in, np.ndarray sub_target_in,
             
     return(best_col_idx, best_val, best_score, best_idx1, best_idx2)
 
+@cython.boundscheck(False)
+@cython.wraparound(False)
 cpdef object split_discrete(np.ndarray sub_column_data_in, np.ndarray sub_target_in,
                    np.ndarray discrete_values_in, metric_func):
     cdef np.ndarray[np.float64_t, ndim=1] sub_column_data, sub_target, discrete_values
@@ -96,6 +104,8 @@ cpdef object split_discrete(np.ndarray sub_column_data_in, np.ndarray sub_target
             best_not_idx = not_idx
     return(best_discrete_class, best_score, np.nonzero(best_idx)[0], np.nonzero(best_not_idx)[0])
 
+@cython.boundscheck(False)
+@cython.wraparound(False)
 cpdef object split_continuous(np.ndarray sub_column_data_in, np.ndarray sub_target_in, metric_func):
     cdef np.ndarray[np.float64_t, ndim=1] sub_column_data, sub_target
     cdef np.ndarray[np.int_t, ndim=1] sorted_idx, idx1, idx2
