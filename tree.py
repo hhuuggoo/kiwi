@@ -102,7 +102,7 @@ class Tree:
     def grow(self, sub_idx, metric_func, stop_func,
              output_func, store_data = False):
         self.root = SimpleBinaryTreeNode(self, 0, None, store_data)
-        self.root grow(self, sub_idx, metric_func,
+        self.root.grow(self, sub_idx, metric_func,
                        stop_func, output_func)
         
         
