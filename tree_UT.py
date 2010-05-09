@@ -1,6 +1,7 @@
 import numpy as np
 from tree import *
 import tree_func_c
+import tree_func
 
 num_rows=2000
 num_cols=11
@@ -74,8 +75,12 @@ root.rule = None
 
 import datetime as dt
 my_tree.helper_data_init()
+my_tree.metric_state = tree_func_c.mse_metric_state
+my_tree.metric_output = tree_func_c.mse_metric_output
+my_tree.output_func = tree_func.mean_output()
+my_tree.stop_func = tree_func.max_depth(10)
 st=dt.datetime.today()
-root.grow(np.arange(num_rows), tree_func_c.mse_metric_c, max_depth, mean_output)
+root.grow(np.arange(num_rows))
 ed=dt.datetime.today()
 print ed-st
 

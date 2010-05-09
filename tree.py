@@ -11,7 +11,7 @@ SimpleBinaryTreeNode
 """
 
 import numpy as np
-import tree_helper as th
+import tree_func_c as tf_c
 class FieldDescriptor:
     """ Describes a column of your data """
     def __init__(self, name, discrete, col_idx):
@@ -87,11 +87,11 @@ class Tree:
         self.data_descriptors = data_descriptors
         self.target_descriptor = target_descriptor
         self.root = None
-        self.metric_code = None
+        self.metric_code = tf_c.NO_METRIC
         self.metric_state = None
         self.metric_output = None
-        self.stop_code = None
-        self.output_code = None
+
+
         
     def predict(self, sample):
         if self.root is not None:
@@ -110,6 +110,46 @@ class Tree:
         self.helper_data_init()
         self.root = SimpleBinaryTreeNode(self, 0, None, store_data)
         self.root.grow(sub_idx)
+        
+default_func_list = [lambda x: x.output,
+                     lambda x: x.rule.field.name,
+                     lambda x: x.rule.value]
+
+def tree2csv(tree, fname, func_list = default_func_list, sep = ","):
+    data_mat = arrayNode(tree.root, func_list)
+    data_mat = np.rot90(data_mat)
+    f = open(fname, 'w')
+    for c in range(data_mat.shape[0]):
+        output = sep.join([str(x) for x in data_mat[c,:]])
+        f.write(output + "\n")
+    f.flush()
+    f.close()
+    
+def arrayNode(node, func_list):
+    small_data = np.empty((len(func_list), 1), 'object')
+    for idx, f in enumerate(func_list):
+        try:
+            small_data[idx,0] = f(node)
+        except:
+            small_data[idx,0] = None
+    if len(node.children)==0:
+        return small_data
+    else:
+        children_data = [arrayNode(x, func_list) for x in node.children]
+        small_height = small_data.shape[0]
+        child_height = children_data[0].shape[0]
+        big_height = small_height + child_height
+        width1 = children_data[0].shape[1]
+        width2 = children_data[1].shape[1]
+        joined_data = np.tile("", (big_height, width1 + width2 + 1))
+        joined_data = np.array(joined_data, 'object')
+        joined_data[:small_height, [width1]] = small_data
+        joined_data[small_height:, :width1] = children_data[0]
+        joined_data[small_height:, -width2:] = children_data[1]
+    return joined_data
+
+
+        
         
         
 class SimpleBinaryTreeNode:
@@ -139,13 +179,16 @@ class SimpleBinaryTreeNode:
         if self.tree.stop_func(self, sub_idx) or len(sub_idx)<2:
             return
         
-        (col_idx, val, score, idx1, idx2) = th.split(self.tree.data[sub_idx, :],
-                                                     self.tree.target[sub_idx],
-                                                     self.tree.disc_array,
-                                                     self.tree.unique_vals_list,
-                                                     self.tree.metric_state,
-                                                     self.tree.metric_output)
+        (col_idx, val, score, idx1, idx2) = tf_c.split(self.tree.data[sub_idx, :],
+                                                       self.tree.target[sub_idx],
+                                                       self.tree.disc_array,
+                                                       self.tree.unique_vals_list,
+                                                       self.tree.metric_state,
+                                                       self.tree.metric_output,
+                                                       self.tree.metric_code)
         field = self.tree.data_descriptors[col_idx]
+        sub_idx1 = sub_idx[idx1]
+        sub_idx2 = sub_idx[idx2]
         
         if self.store_data:
             self.stat_store.append((val, score, sub_idx[idx1], sub_idx[idx2]))
@@ -158,6 +201,6 @@ class SimpleBinaryTreeNode:
                                                   self, self.store_data))
         self.children.append(SimpleBinaryTreeNode(self.tree, self.level+1,
                                                   self, self.store_data))
-        self.children[0].grow(idx1)
-        self.children[1].grow(idx2)
+        self.children[0].grow(sub_idx1)
+        self.children[1].grow(sub_idx2)
 
