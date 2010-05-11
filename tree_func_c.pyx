@@ -1,7 +1,4 @@
-# encoding: utf-8
-# cython: profile=True
-# filename: tree_func_c.pyx
-
+#cython: profile=True
 
 import numpy as np
 cimport numpy as np
@@ -13,14 +10,25 @@ MSE = 1
 cdef int NO_METRIC_C = 0
 cdef int MSE_C = 1
 
-cdef object state_eval(object metric_state, int metric_code,
-                        object state, np.ndarray data_in, double val_in,
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cdef object state_eval(object metric_state, int metric_code, object state, np.ndarray data_in, double val_in,
                         bint use_array, bint to_add):
-    cdef object data =  mse_metric_state(state, data_in, val_in, use_array, to_add)
+    cdef object data
+    if metric_code == NO_METRIC_C:
+        data = metric_state(state, data_in, val_in, use_array, to_add)
+    elif metric_code == MSE_C:
+        data =  mse_metric_state(state, data_in, val_in, use_array, to_add)
     return data
 
-cdef double output_eval(object metric_output, int metric_code, object state):
-    cdef double metric = mse_metric_output(state)
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cdef double output_eval(object metric_output, int metric_code,  object state):
+    cdef double metric
+    if metric_code == NO_METRIC_C:
+        metric = metric_output(state)
+    elif metric_code == MSE_C:
+        metric = mse_metric_output(state)
     return metric
 
     
@@ -148,17 +156,13 @@ cpdef object split_discrete(np.ndarray sub_column_data_in, np.ndarray sub_target
     cdef double x, best_score, best_discrete_class, score
     cdef np.ndarray  idx, not_idx, best_idx, best_not_idx
     cdef object master_state, class_state
-    master_state = state_eval(metric_state, metric_code,
-                               [], sub_target, 0.0, True, True)
+    master_state = state_eval(metric_state, metric_code, [], sub_target, 0.0, True, True)
     for x in discrete_values:
         idx = (sub_column_data == x)
         class_target = sub_target[idx]
-        class_state = state_eval(metric_state, metric_code,
-                                 [], class_target, 0.0, True, True)
-        left_state = state_eval(metric_state, metric_code,
-                                master_state, class_target, 0.0, True, False)
-        score = output_eval(metric_state, metric_code,
-                            [class_state, left_state])
+        class_state = state_eval(metric_state, metric_code, [], class_target, 0.0, True, True)
+        left_state = state_eval(metric_state, metric_code, master_state, class_target, 0.0, True, False)
+        score = output_eval(metric_output, metric_code, [class_state, left_state])
         
         if not np.isfinite(score):
             continue
@@ -189,17 +193,14 @@ cpdef object split_continuous(np.ndarray sub_column_data_in,
     sorted_idx = np.argsort(sub_column_data)
     sorted_target = sub_target[sorted_idx]
     idx_len = len(sorted_idx)
-    greater_state = state_eval(metric_state, metric_code,
-                               [], sorted_target, 0.0, True, True)
+    greater_state = state_eval(metric_state, metric_code, [], sorted_target, 0.0, True, True)
     lesser_state = []
     for x in range(len(sorted_idx)):
-        lesser_state = state_eval(metric_state, metric_code,
-                                  lesser_state, sorted_target, sorted_target[x],
+        lesser_state = state_eval(metric_state, metric_code, lesser_state, sorted_target, sorted_target[x],
                                     False, True)
-        greater_state = state_eval(metric_state, metric_code,
-                                   greater_state, sorted_target, sorted_target[x],
+        greater_state = state_eval(metric_state, metric_code, greater_state, sorted_target, sorted_target[x],
                                      False, False)
-        score = output_eval(metric_output, metric_code, [lesser_state, greater_state])
+        score = output_eval(metric_state, metric_code, [lesser_state, greater_state])
         if not np.isfinite(score):
             continue
 

@@ -91,8 +91,21 @@ class Tree:
         self.metric_state = None
         self.metric_output = None
 
-
-        
+    def enable_all(self, node = -1):
+        if node == -1:
+            node = self.root
+        node.terminate = False
+        for n in node.children:
+            self.enable_all(node = n)
+            
+    def prune(self, stop_func, node = -1):
+        if node == -1:
+            node = self.root
+        if stop_func(node, node.stat_store['sub_idx']):
+            node.terminate = True
+        for n in node.children:
+            self.prune(stop_func, node = n)
+            
     def predict(self, sample):
         if self.root is not None:
             return self.root.descend(sample).output
@@ -116,7 +129,7 @@ default_func_list = [lambda x: x.output,
                      lambda x: x.rule.value]
 
 def tree2csv(tree, fname, func_list = default_func_list, sep = ","):
-    data_mat = arrayNode(tree.root, func_list)
+    data_mat = arrayNode(tree.root, func_list)['data']
     data_mat = np.rot90(data_mat)
     f = open(fname, 'w')
     for c in range(data_mat.shape[0]):
@@ -132,21 +145,33 @@ def arrayNode(node, func_list):
             small_data[idx,0] = f(node)
         except:
             small_data[idx,0] = None
-    if len(node.children)==0:
-        return small_data
+    if len(node.children)==0 or node.terminate:
+        return {'data':small_data, 'w1':0, 'w2':0}
     else:
         children_data = [arrayNode(x, func_list) for x in node.children]
         small_height = small_data.shape[0]
-        child_height = children_data[0].shape[0]
+        child_height1 = children_data[0]['data'].shape[0]
+        child_height2 = children_data[1]['data'].shape[0]
+        child_height = np.max((child_height1, child_height2))
+        
         big_height = small_height + child_height
-        width1 = children_data[0].shape[1]
-        width2 = children_data[1].shape[1]
+        width1 = children_data[0]['data'].shape[1]
+        width2 = children_data[1]['data'].shape[1]
         joined_data = np.tile("", (big_height, width1 + width2 + 1))
         joined_data = np.array(joined_data, 'object')
         joined_data[:small_height, [width1]] = small_data
-        joined_data[small_height:, :width1] = children_data[0]
-        joined_data[small_height:, -width2:] = children_data[1]
-    return joined_data
+        joined_data[small_height:(small_height + child_height1), :width1] = children_data[0]['data']
+        joined_data[small_height:(small_height + child_height2), -width2:] = children_data[1]['data']
+
+        mid_pt = np.ceil(len(func_list)/2)
+        joined_data[mid_pt, children_data[0]['w1']:width1] = "|"
+        joined_data[mid_ptp:small_height, children_data[0]['w1']] = "="
+        joined_data[mid_pt, -width2:(-children_data[1]['w2']-1)] = "|"
+        joined_data[mid_pt:small_height, (-children_data[1]['w2']-1)] = "="
+        
+    return {'data':joined_data,
+            'w1':width1,
+            'w2':width2}
 
 
         
@@ -158,13 +183,14 @@ class SimpleBinaryTreeNode:
         self.level = level
         self.parent_node = parent_node
         self.store_data = store_data
-        self.stat_store = []
+        self.stat_store = {}
         self.rule = None
         self.output = None
         self.children = []
-
+        self.terminate = False
+        
     def descend(self, sample):
-        if len(self.children) == 0:
+        if len(self.children) == 0 or self.terminate:
             return self
         else:
             idx = self.rule.evaluate_rule(sample)
@@ -177,6 +203,8 @@ class SimpleBinaryTreeNode:
         self.output = self.tree.output_func(self, sub_idx)
         
         if self.tree.stop_func(self, sub_idx) or len(sub_idx)<2:
+            if self.store_data:
+                self.stat_store['sub_idx'] = sub_idx
             return
         
         (col_idx, val, score, idx1, idx2) = tf_c.split(self.tree.data[sub_idx, :],
@@ -191,7 +219,11 @@ class SimpleBinaryTreeNode:
         sub_idx2 = sub_idx[idx2]
         
         if self.store_data:
-            self.stat_store.append((val, score, sub_idx[idx1], sub_idx[idx2]))
+            self.stat_store['sub_idx'] = sub_idx
+            self.stat_store['val'] = val
+            self.stat_store['score'] = score
+            self.stat_store['idx1'] = sub_idx[idx1]
+            self.stat_store['idx2'] = sub_idx[idx2]
         if field.discrete:
             self.rule = DiscreteBinaryRule(field, val)
         else:
