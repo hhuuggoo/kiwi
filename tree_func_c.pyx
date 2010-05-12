@@ -7,8 +7,10 @@ cimport cython
 
 NO_METRIC = 0
 MSE = 1
+R2 = 2
 cdef int NO_METRIC_C = 0
 cdef int MSE_C = 1
+cdef int R2_C = 2
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
@@ -19,6 +21,8 @@ cdef object state_eval(object metric_state, int metric_code, object state, np.nd
         data = metric_state(state, data_in, val_in, use_array, to_add)
     elif metric_code == MSE_C:
         data =  mse_metric_state(state, data_in, val_in, use_array, to_add)
+    elif metric_code == R2_C:
+        data =  R2_metric_state(state, data_in, val_in, use_array, to_add)
     return data
 
 @cython.boundscheck(False)
@@ -29,6 +33,9 @@ cdef double output_eval(object metric_output, int metric_code,  object state):
         metric = metric_output(state)
     elif metric_code == MSE_C:
         metric = mse_metric_output(state)
+    elif metric_code == R2_C:
+        metric = R2_metric_output(state)
+
     return metric
 
     
