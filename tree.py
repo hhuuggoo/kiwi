@@ -12,6 +12,9 @@ SimpleBinaryTreeNode
 
 import numpy as np
 import tree_func_c as tf_c
+
+numstr = "%.4f"
+
 class FieldDescriptor:
     """ Describes a column of your data """
     def __init__(self, name, discrete, col_idx):
@@ -128,12 +131,30 @@ default_func_list = [lambda x: x.output,
                      lambda x: x.rule.field.name,
                      lambda x: x.rule.value]
 
-def tree2csv(tree, fname, func_list = default_func_list, sep = ","):
+def tree2csv(tree, fname, func_list = default_func_list, sep = ""):
     data_mat = arrayNode(tree.root, func_list)['data']
     data_mat = np.rot90(data_mat)
+    col_max_width = []
+    for cc in range(data_mat.shape[1]):
+        max_width = 0
+        for rc in range(data_mat.shape[0]):
+            data = data_mat[rc,cc]
+            if data not in ["=","|"]:
+                if type(data) is str:
+                    new_width = len(data)
+                if new_width > max_width:
+                    max_width = new_width
+        col_max_width.append(max_width)
     f = open(fname, 'w')
-    for c in range(data_mat.shape[0]):
-        output = sep.join([str(x) for x in data_mat[c,:]])
+    for rc in range(data_mat.shape[0]):
+        for cc in range(data_mat.shape[1]):
+            data = data_mat[rc,cc]
+            if data == "=":
+                data = data * col_max_width[cc]
+            elif type(data) is str:
+                data = data.ljust(col_max_width[cc])
+            data_mat[rc,cc] = data
+        output = sep.join([str(x) for x in data_mat[rc,:]])
         f.write(output + "\n")
     f.flush()
     f.close()
@@ -145,6 +166,13 @@ def arrayNode(node, func_list):
             small_data[idx,0] = f(node)
         except:
             small_data[idx,0] = None
+        if type(small_data[idx,0]) is str:
+            small_data[idx,0] = '(%s)' % small_data[idx,0]
+        elif small_data[idx,0] is None:
+            small_data[idx,0] = "()"
+        else:
+            small_data[idx,0] = '(%s)' % (numstr % small_data[idx,0])
+
     if len(node.children)==0 or node.terminate:
         return {'data':small_data, 'w1':0, 'w2':0}
     else:
@@ -165,7 +193,7 @@ def arrayNode(node, func_list):
 
         mid_pt = np.ceil(len(func_list)/2)
         joined_data[mid_pt, children_data[0]['w1']:width1] = "|"
-        joined_data[mid_ptp:small_height, children_data[0]['w1']] = "="
+        joined_data[mid_pt:small_height, children_data[0]['w1']] = "="
         joined_data[mid_pt, -width2:(-children_data[1]['w2']-1)] = "|"
         joined_data[mid_pt:small_height, (-children_data[1]['w2']-1)] = "="
         
