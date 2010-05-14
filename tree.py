@@ -79,7 +79,7 @@ class DiscreteBinaryRule(Rule):
 class ContinuousBinaryRule(Rule):
     def evaluate_rule(self, sample_data):
         sample_value = sample_data[self.field.col_idx]
-        if sample_value >= self.value:
+        if sample_value > self.value:
             return 1
         else:
             return 0
@@ -264,3 +264,21 @@ class SimpleBinaryTreeNode:
         self.children[0].grow(sub_idx1)
         self.children[1].grow(sub_idx2)
 
+def node_verify(tree, node):
+    def process_idx(idx, verif_val):
+        wrong_list = []
+        for i in idx:
+            data = tree.data[i,:]
+            if node.rule.evaluate_rule(data) != verif_val:
+                wrong_list.append(i)
+        return wrong_list
+    
+    idx1 = node.stat_store['idx1']
+    idx2 = node.stat_store['idx2']
+    verif_val = 0
+    wrong1 = process_idx(idx1, 0)            
+    wrong2 = process_idx(idx2, 1)
+    return (wrong1, wrong2)
+
+
+            
