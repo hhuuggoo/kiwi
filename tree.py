@@ -79,7 +79,7 @@ class DiscreteBinaryRule(Rule):
 class ContinuousBinaryRule(Rule):
     def evaluate_rule(self, sample_data):
         sample_value = sample_data[self.field.col_idx]
-        if sample_value > self.value:
+        if sample_value >= self.value:
             return 1
         else:
             return 0
