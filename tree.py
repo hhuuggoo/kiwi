@@ -12,6 +12,9 @@ SimpleBinaryTreeNode
 
 import numpy as np
 import tree_func_c as tf_c
+
+numstr = "%.4f"
+
 class FieldDescriptor:
     """ Describes a column of your data """
     def __init__(self, name, discrete, col_idx):
@@ -101,10 +104,13 @@ class Tree:
     def prune(self, stop_func, node = -1):
         if node == -1:
             node = self.root
-        if stop_func(node, node.stat_store['sub_idx']):
-            node.terminate = True
-        for n in node.children:
-            self.prune(stop_func, node = n)
+            
+        if stop_func(node, node.stat_store['idx1'], node.stat_store['idx2']):
+            for n in node.children:
+                n.terminate = True
+        else:
+            for n in node.children:
+                self.prune(stop_func, node = n)
             
     def predict(self, sample):
         if self.root is not None:
@@ -122,18 +128,37 @@ class Tree:
     def grow(self, sub_idx, store_data = False):
         self.helper_data_init()
         self.root = SimpleBinaryTreeNode(self, 0, None, store_data)
+        self.root.compute_output(sub_idx)
         self.root.grow(sub_idx)
         
 default_func_list = [lambda x: x.output,
                      lambda x: x.rule.field.name,
                      lambda x: x.rule.value]
 
-def tree2csv(tree, fname, func_list = default_func_list, sep = ","):
+def tree2csv(tree, fname, func_list = default_func_list, sep = ""):
     data_mat = arrayNode(tree.root, func_list)['data']
     data_mat = np.rot90(data_mat)
+    col_max_width = []
+    for cc in range(data_mat.shape[1]):
+        max_width = 0
+        for rc in range(data_mat.shape[0]):
+            data = data_mat[rc,cc]
+            if data not in ["=","|"]:
+                if type(data) is str:
+                    new_width = len(data)
+                if new_width > max_width:
+                    max_width = new_width
+        col_max_width.append(max_width)
     f = open(fname, 'w')
-    for c in range(data_mat.shape[0]):
-        output = sep.join([str(x) for x in data_mat[c,:]])
+    for rc in range(data_mat.shape[0]):
+        for cc in range(data_mat.shape[1]):
+            data = data_mat[rc,cc]
+            if data == "=":
+                data = data * col_max_width[cc]
+            elif type(data) is str:
+                data = data.ljust(col_max_width[cc])
+            data_mat[rc,cc] = data
+        output = sep.join([str(x) for x in data_mat[rc,:]])
         f.write(output + "\n")
     f.flush()
     f.close()
@@ -145,6 +170,13 @@ def arrayNode(node, func_list):
             small_data[idx,0] = f(node)
         except:
             small_data[idx,0] = None
+        if type(small_data[idx,0]) is str:
+            small_data[idx,0] = '(%s)' % small_data[idx,0]
+        elif small_data[idx,0] is None:
+            small_data[idx,0] = "()"
+        else:
+            small_data[idx,0] = '(%s)' % (numstr % small_data[idx,0])
+
     if len(node.children)==0 or node.terminate:
         return {'data':small_data, 'w1':0, 'w2':0}
     else:
@@ -165,7 +197,7 @@ def arrayNode(node, func_list):
 
         mid_pt = np.ceil(len(func_list)/2)
         joined_data[mid_pt, children_data[0]['w1']:width1] = "|"
-        joined_data[mid_ptp:small_height, children_data[0]['w1']] = "="
+        joined_data[mid_pt:small_height, children_data[0]['w1']] = "="
         joined_data[mid_pt, -width2:(-children_data[1]['w2']-1)] = "|"
         joined_data[mid_pt:small_height, (-children_data[1]['w2']-1)] = "="
         
@@ -198,15 +230,11 @@ class SimpleBinaryTreeNode:
                 return self.children[0].descend(sample)
             else:
                 return self.children[1].descend(sample)
-
-    def grow(self, sub_idx):
+            
+    def compute_output(self, sub_idx):
         self.output = self.tree.output_func(self, sub_idx)
         
-        if self.tree.stop_func(self, sub_idx) or len(sub_idx)<2:
-            if self.store_data:
-                self.stat_store['sub_idx'] = sub_idx
-            return
-        
+    def grow(self, sub_idx):
         (col_idx, val, score, idx1, idx2) = tf_c.split(self.tree.data[sub_idx, :],
                                                        self.tree.target[sub_idx],
                                                        self.tree.disc_array,
@@ -217,13 +245,19 @@ class SimpleBinaryTreeNode:
         field = self.tree.data_descriptors[col_idx]
         sub_idx1 = sub_idx[idx1]
         sub_idx2 = sub_idx[idx2]
-        
+
+                    
         if self.store_data:
             self.stat_store['sub_idx'] = sub_idx
             self.stat_store['val'] = val
             self.stat_store['score'] = score
             self.stat_store['idx1'] = sub_idx[idx1]
             self.stat_store['idx2'] = sub_idx[idx2]
+
+        if (self.tree.stop_func(self, sub_idx1, sub_idx2) or
+            len(sub_idx1) < 2 or len(sub_idx2) < 2):
+            return
+            
         if field.discrete:
             self.rule = DiscreteBinaryRule(field, val)
         else:
@@ -231,8 +265,28 @@ class SimpleBinaryTreeNode:
             
         self.children.append(SimpleBinaryTreeNode(self.tree, self.level+1,
                                                   self, self.store_data))
+        self.children[0].compute_output(sub_idx1)
         self.children.append(SimpleBinaryTreeNode(self.tree, self.level+1,
                                                   self, self.store_data))
+        self.children[1].compute_output(sub_idx2)
         self.children[0].grow(sub_idx1)
         self.children[1].grow(sub_idx2)
 
+def node_verify(tree, node):
+    def process_idx(idx, verif_val):
+        wrong_list = []
+        for i in idx:
+            data = tree.data[i,:]
+            if node.rule.evaluate_rule(data) != verif_val:
+                wrong_list.append(i)
+        return wrong_list
+    
+    idx1 = node.stat_store['idx1']
+    idx2 = node.stat_store['idx2']
+    verif_val = 0
+    wrong1 = process_idx(idx1, 0)            
+    wrong2 = process_idx(idx2, 1)
+    return (wrong1, wrong2)
+
+
+            

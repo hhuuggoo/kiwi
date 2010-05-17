@@ -7,8 +7,10 @@ cimport cython
 
 NO_METRIC = 0
 MSE = 1
+R2 = 2
 cdef int NO_METRIC_C = 0
 cdef int MSE_C = 1
+cdef int R2_C = 2
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
@@ -19,6 +21,8 @@ cdef object state_eval(object metric_state, int metric_code, object state, np.nd
         data = metric_state(state, data_in, val_in, use_array, to_add)
     elif metric_code == MSE_C:
         data =  mse_metric_state(state, data_in, val_in, use_array, to_add)
+    elif metric_code == R2_C:
+        data =  r2_metric_state(state, data_in, val_in, use_array, to_add)
     return data
 
 @cython.boundscheck(False)
@@ -29,6 +33,9 @@ cdef double output_eval(object metric_output, int metric_code,  object state):
         metric = metric_output(state)
     elif metric_code == MSE_C:
         metric = mse_metric_output(state)
+    elif metric_code == R2_C:
+        metric = r2_metric_output(state)
+
     return metric
 
     
@@ -93,7 +100,82 @@ cpdef double mse_metric_output(object state_list):
         total_error += error
         total_length += data_length
     return -total_error / total_length
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cpdef object r2_metric_state(object state, np.ndarray data_in, double val_in,
+                              bint use_array, bint to_add):
+    
+    cdef np.ndarray[np.float64_t, ndim = 1] data 
+    cdef double accum_square_val, accum_sum_val, accum_length, error1, error2,
+    cdef int i, data_length
+
+    if use_array:
+        data = data_in
+        data_length = len(data)
+        accum_square_val = 0.0
+        accum_sum_val = 0.0
+    
+        for i in range(data_length):
+            accum_sum_val += data[i]
+        for i in range(data_length):
+            accum_square_val += data[i]**2
+    else:
+        accum_square_val = val_in**2
+        accum_sum_val = val_in
+        data_length = 1
         
+    if not to_add:
+        accum_square_val = -accum_square_val
+        accum_sum_val = -accum_sum_val
+        data_length = -data_length
+        
+    if len(state) == 0:
+        state = [0, 0, 0]
+        
+    state[0] = state[0] + accum_square_val
+    state[1] = state[1] + accum_sum_val
+    state[2] = state[2] + float(data_length)
+
+    return state
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cpdef double r2_metric_output(object state_list):
+    #x^2 - 2ux + u^2
+    cdef double total_error = 0
+    cdef double total_length = 0
+    cdef double accum_square_val, accum_sum_val, data_length
+    cdef double mean, error, global_mean, var, total_var
+
+    accum_sum_val = 0.0
+    data_length = 0.0
+    for state in state_list:
+        accum_sum_val += state[1]
+        data_length += state[2]
+    global_mean = accum_sum_val / data_length
+        
+    for state in state_list:
+        accum_square_val = state[0]
+        accum_sum_val = state[1]
+        data_length =  state[2]
+        if data_length == 0:
+            error = 0.0
+            var = 0.0
+        else:
+            mean = accum_sum_val / data_length
+            error = accum_square_val - \
+                    2 * mean * accum_sum_val + \
+                    data_length * mean ** 2
+            var = accum_square_val - \
+                    2 * global_mean * accum_sum_val + \
+                    data_length * global_mean ** 2
+        total_error += error
+        total_var += var
+
+    return 1 - total_error / total_var
+
         
 @cython.boundscheck(False)
 @cython.wraparound(False)
@@ -184,7 +266,7 @@ cpdef object split_continuous(np.ndarray sub_column_data_in,
     cdef np.ndarray[np.float64_t, ndim=1] sub_column_data, sub_target
     cdef np.ndarray[np.int_t, ndim=1] sorted_idx, idx1, idx2
     cdef bool score_set = False
-    cdef int x, idx_len, best_idx
+    cdef int x, idx_len, best_idx, length
     cdef double best_score, score, best_value
     
     sub_column_data = sub_column_data_in
@@ -193,14 +275,23 @@ cpdef object split_continuous(np.ndarray sub_column_data_in,
     sorted_idx = np.argsort(sub_column_data)
     sorted_target = sub_target[sorted_idx]
     idx_len = len(sorted_idx)
-    greater_state = state_eval(metric_state, metric_code, [], sorted_target, 0.0, True, True)
+    greater_state = state_eval(metric_state, metric_code, [],
+                               sorted_target, 0.0, True, True)
     lesser_state = []
-    for x in range(len(sorted_idx)):
-        lesser_state = state_eval(metric_state, metric_code, lesser_state, sorted_target, sorted_target[x],
-                                    False, True)
-        greater_state = state_eval(metric_state, metric_code, greater_state, sorted_target, sorted_target[x],
-                                     False, False)
-        score = output_eval(metric_state, metric_code, [lesser_state, greater_state])
+    length = len(sorted_idx)
+    for x in range(length):
+        lesser_state = state_eval(metric_state, metric_code,
+                                  lesser_state, sorted_target, sorted_target[x],
+                                  False, True)
+        greater_state = state_eval(metric_state, metric_code, greater_state,
+                                   sorted_target, sorted_target[x],
+                                   False, False)
+
+        if x+1 < length and sorted_target[x+1] == sorted_target[x]:
+            continue
+        
+        score = output_eval(metric_state, metric_code,
+                            [lesser_state, greater_state])
         if not np.isfinite(score):
             continue
 

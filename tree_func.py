@@ -6,9 +6,10 @@ def max_depth(threshold):
     return helper
 
 def md_min_subtree(threshold, num_elements):
-    def helper(tree_node, sub_idx):
+    def helper(tree_node, sub_idx1, sub_idx2):
         return ((tree_node.level >= threshold) or
-                (len(sub_idx) < num_elements))
+                (len(sub_idx1) < num_elements) or
+                len(sub_idx2) < num_elements)
     return helper
 
 def mean_output():
