@@ -266,7 +266,7 @@ cpdef object split_continuous(np.ndarray sub_column_data_in,
     cdef np.ndarray[np.float64_t, ndim=1] sub_column_data, sub_target
     cdef np.ndarray[np.int_t, ndim=1] sorted_idx, idx1, idx2
     cdef bool score_set = False
-    cdef int x, idx_len, best_idx
+    cdef int x, idx_len, best_idx, length
     cdef double best_score, score, best_value
     
     sub_column_data = sub_column_data_in
@@ -275,14 +275,23 @@ cpdef object split_continuous(np.ndarray sub_column_data_in,
     sorted_idx = np.argsort(sub_column_data)
     sorted_target = sub_target[sorted_idx]
     idx_len = len(sorted_idx)
-    greater_state = state_eval(metric_state, metric_code, [], sorted_target, 0.0, True, True)
+    greater_state = state_eval(metric_state, metric_code, [],
+                               sorted_target, 0.0, True, True)
     lesser_state = []
-    for x in range(len(sorted_idx)):
-        lesser_state = state_eval(metric_state, metric_code, lesser_state, sorted_target, sorted_target[x],
-                                    False, True)
-        greater_state = state_eval(metric_state, metric_code, greater_state, sorted_target, sorted_target[x],
-                                     False, False)
-        score = output_eval(metric_state, metric_code, [lesser_state, greater_state])
+    length = len(sorted_idx)
+    for x in range(length):
+        lesser_state = state_eval(metric_state, metric_code,
+                                  lesser_state, sorted_target, sorted_target[x],
+                                  False, True)
+        greater_state = state_eval(metric_state, metric_code, greater_state,
+                                   sorted_target, sorted_target[x],
+                                   False, False)
+
+        if x+1 < length and sorted_target[x+1] == sorted_target[x]:
+            continue
+        
+        score = output_eval(metric_state, metric_code,
+                            [lesser_state, greater_state])
         if not np.isfinite(score):
             continue
 

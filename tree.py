@@ -104,10 +104,13 @@ class Tree:
     def prune(self, stop_func, node = -1):
         if node == -1:
             node = self.root
-        if stop_func(node, node.stat_store['sub_idx']):
-            node.terminate = True
-        for n in node.children:
-            self.prune(stop_func, node = n)
+            
+        if stop_func(node, node.stat_store['idx1'], node.stat_store['idx2']):
+            for n in node.children:
+                n.terminate = True
+        else:
+            for n in node.children:
+                self.prune(stop_func, node = n)
             
     def predict(self, sample):
         if self.root is not None:
@@ -125,6 +128,7 @@ class Tree:
     def grow(self, sub_idx, store_data = False):
         self.helper_data_init()
         self.root = SimpleBinaryTreeNode(self, 0, None, store_data)
+        self.root.compute_output(sub_idx)
         self.root.grow(sub_idx)
         
 default_func_list = [lambda x: x.output,
@@ -226,15 +230,11 @@ class SimpleBinaryTreeNode:
                 return self.children[0].descend(sample)
             else:
                 return self.children[1].descend(sample)
-
-    def grow(self, sub_idx):
+            
+    def compute_output(self, sub_idx):
         self.output = self.tree.output_func(self, sub_idx)
         
-        if self.tree.stop_func(self, sub_idx) or len(sub_idx)<2:
-            if self.store_data:
-                self.stat_store['sub_idx'] = sub_idx
-            return
-        
+    def grow(self, sub_idx):
         (col_idx, val, score, idx1, idx2) = tf_c.split(self.tree.data[sub_idx, :],
                                                        self.tree.target[sub_idx],
                                                        self.tree.disc_array,
@@ -245,13 +245,19 @@ class SimpleBinaryTreeNode:
         field = self.tree.data_descriptors[col_idx]
         sub_idx1 = sub_idx[idx1]
         sub_idx2 = sub_idx[idx2]
-        
+
+                    
         if self.store_data:
             self.stat_store['sub_idx'] = sub_idx
             self.stat_store['val'] = val
             self.stat_store['score'] = score
             self.stat_store['idx1'] = sub_idx[idx1]
             self.stat_store['idx2'] = sub_idx[idx2]
+
+        if (self.tree.stop_func(self, sub_idx1, sub_idx2) or
+            len(sub_idx1) < 2 or len(sub_idx2) < 2):
+            return
+            
         if field.discrete:
             self.rule = DiscreteBinaryRule(field, val)
         else:
@@ -259,8 +265,10 @@ class SimpleBinaryTreeNode:
             
         self.children.append(SimpleBinaryTreeNode(self.tree, self.level+1,
                                                   self, self.store_data))
+        self.children[0].compute_output(sub_idx1)
         self.children.append(SimpleBinaryTreeNode(self.tree, self.level+1,
                                                   self, self.store_data))
+        self.children[1].compute_output(sub_idx2)
         self.children[0].grow(sub_idx1)
         self.children[1].grow(sub_idx2)
 
