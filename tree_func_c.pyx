@@ -274,6 +274,7 @@ cpdef object split_continuous(np.ndarray sub_column_data_in,
     
     sorted_idx = np.argsort(sub_column_data)
     sorted_target = sub_target[sorted_idx]
+    sorted_column = sub_column_data[sorted_idx]
     idx_len = len(sorted_idx)
     greater_state = state_eval(metric_state, metric_code, [],
                                sorted_target, 0.0, True, True)
@@ -287,7 +288,7 @@ cpdef object split_continuous(np.ndarray sub_column_data_in,
                                    sorted_target, sorted_target[x],
                                    False, False)
 
-        if x+1 < length and sorted_target[x+1] == sorted_target[x]:
+        if x+1 < length and sorted_column[x+1] == sorted_column[x]:
             continue
         
         score = output_eval(metric_state, metric_code,
@@ -300,6 +301,6 @@ cpdef object split_continuous(np.ndarray sub_column_data_in,
             best_idx = x
             score_set = True
     best_value = sub_column_data[sorted_idx[best_idx]]
-    idx1 = sorted_idx[:best_idx]
-    idx2 = sorted_idx[best_idx:]
+    idx1 = sorted_idx[:best_idx + 1]
+    idx2 = sorted_idx[best_idx + 1:]
     return (best_value, best_score, idx1, idx2)
