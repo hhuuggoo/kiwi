@@ -91,6 +91,11 @@ class Tree:
         self.data_descriptors = data_descriptors
         self.target_descriptor = target_descriptor
         self.root = None
+
+        #functions that determine tree behavior
+        #if code is set, use funcs implied by the code, else
+        #use the funcs that are passed in
+        
         self.metric_code = tf_c.NO_METRIC
         self.metric_state = None
         self.metric_output = None
@@ -225,7 +230,7 @@ default_func_list = [lambda x: x.output,
                      lambda x: x.rule.field.name,
                      lambda x: x.rule.value]
 
-def tree2csv(tree, fname, func_list = default_func_list, sep = ""):
+def tree2txt(tree, fname, func_list = default_func_list, sep = ""):
     data_mat = arrayNode(tree.root, func_list)['data']
     data_mat = np.rot90(data_mat)
     col_max_width = []

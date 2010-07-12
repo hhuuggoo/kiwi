@@ -3,7 +3,10 @@ from tree import *
 import tree_func_c
 import tree_func
 
-num_rows=2000
+
+##really need to make these real unit tests
+
+num_rows=20000
 num_cols=11
 discretes = [4,5]
 data = np.random.random((num_rows,num_cols))
@@ -75,8 +78,10 @@ root.rule = None
 
 import datetime as dt
 my_tree.helper_data_init()
-my_tree.metric_state = tree_func_c.mse_metric_state
-my_tree.metric_output = tree_func_c.mse_metric_output
+my_tree.metric_state = tree_func_c.r2_metric_state
+my_tree.metric_output = tree_func_c.r2_metric_output
+my_tree.metric_code = tf_c.NO_METRIC
+
 my_tree.output_func = tree_func.mean_output()
 my_tree.stop_func = tree_func.max_depth(10)
 st=dt.datetime.today()
